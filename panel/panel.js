@@ -166,10 +166,45 @@ clear.addEventListener('click', async function() {
     key_container.innerHTML = "";
 });
 
-async function createCommand(json, key_string) {
+const copy_all_commands = document.getElementById('copy-all-commands');
+copy_all_commands.addEventListener('click', async function() {
+    const logs = await AsyncLocalStorage.getStorage(null);
+    const commands = [];
+
+    for (const [key, result] of Object.entries(logs)) {
+        if (result.keys && result.manifests && result.manifests.length > 0) {
+            const key_string = result.keys.map(key => `--key ${key.kid}:${key.k}`).join(' ');
+            const videoName = result.videoName || 'Unknown Video';
+
+            // Get first manifest
+            const manifestJson = JSON.stringify(result.manifests[0]);
+            const command = await createCommand(manifestJson, key_string, videoName);
+
+            commands.push(`# ${videoName}`);
+            commands.push(command);
+            commands.push(''); // Empty line for readability
+        }
+    }
+
+    if (commands.length > 0) {
+        const allCommands = commands.join('\n');
+        await navigator.clipboard.writeText(allCommands);
+        console.log(`[WidevineProxy2] Copied ${commands.length / 3} commands to clipboard`);
+    } else {
+        console.log('[WidevineProxy2] No commands to copy');
+    }
+});
+
+async function createCommand(json, key_string, videoName) {
     const metadata = JSON.parse(json);
     const header_string = Object.entries(metadata.headers).map(([key, value]) => `-H "${key}: ${value.replace(/"/g, "'")}"`).join(' ');
-    return `${await SettingsManager.getExecutableName()} "${metadata.url}" ${header_string} ${key_string} ${await SettingsManager.getUseShakaPackager() ? "--use-shaka-packager " : ""}-M format=mkv`;
+
+    // Create safe filename from video name
+    const safeVideoName = videoName && videoName !== 'Unknown Video'
+        ? videoName.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_')
+        : 'output';
+
+    return `${await SettingsManager.getExecutableName()} "${metadata.url}" ${header_string} ${key_string} ${await SettingsManager.getUseShakaPackager() ? "--use-shaka-packager " : ""}-M format=mkv -M name="${safeVideoName}"`;
 }
 
 async function appendLog(result) {
@@ -216,13 +251,13 @@ async function appendLog(result) {
 
         const select = logContainer.querySelector("#manifest");
         select.addEventListener('change', async () => {
-            command.value = await createCommand(select.value, key_string);
+            command.value = await createCommand(select.value, key_string, videoName);
         });
         result.manifests.forEach((manifest) => {
             const option = new Option(`[${manifest.type}] ${manifest.url}`, JSON.stringify(manifest));
             select.add(option);
         });
-        command.value = await createCommand(select.value, key_string);
+        command.value = await createCommand(select.value, key_string, videoName);
 
         const manifest_copy = logContainer.querySelector('.manifest-copy');
         manifest_copy.addEventListener('click', () => {

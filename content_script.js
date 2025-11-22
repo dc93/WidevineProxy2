@@ -453,13 +453,15 @@ class BatchVideoProcessor {
     }
 
     sendProgress(processed, total, status, currentVideo) {
-        chrome.runtime.sendMessage({
-            type: "BATCH_PROGRESS",
-            processed: processed,
-            total: total,
-            status: status,
-            currentVideo: currentVideo
-        });
+        // Send via custom event to ISOLATED world
+        document.dispatchEvent(new CustomEvent('batchProgress', {
+            detail: {
+                processed: processed,
+                total: total,
+                status: status,
+                currentVideo: currentVideo
+            }
+        }));
     }
 
     sleep(ms) {
@@ -469,15 +471,15 @@ class BatchVideoProcessor {
 
 const batchProcessor = new BatchVideoProcessor();
 
-// Listen for batch processing commands
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "START_BATCH_PROCESSING") {
+// Listen for batch processing commands from ISOLATED world
+document.addEventListener('batchCommand', (event) => {
+    const { command } = event.detail;
+    if (command === 'start') {
+        console.log("[BatchProcessor] Received start command");
         batchProcessor.start();
-        sendResponse({ success: true });
-    } else if (message.type === "STOP_BATCH_PROCESSING") {
+    } else if (command === 'stop') {
+        console.log("[BatchProcessor] Received stop command");
         batchProcessor.stop();
-        sendResponse({ success: true });
     }
-    return true;
 });
 // =======================================================

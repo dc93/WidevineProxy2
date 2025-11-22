@@ -21,3 +21,33 @@ document.addEventListener('response', async (event) => {
     });
     document.dispatchEvent(responseEvent);
 });
+
+// Listen for batch processing commands from panel
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "START_BATCH_PROCESSING") {
+        // Forward to MAIN world
+        document.dispatchEvent(new CustomEvent('batchCommand', {
+            detail: { command: 'start' }
+        }));
+        sendResponse({ success: true });
+    } else if (message.type === "STOP_BATCH_PROCESSING") {
+        // Forward to MAIN world
+        document.dispatchEvent(new CustomEvent('batchCommand', {
+            detail: { command: 'stop' }
+        }));
+        sendResponse({ success: true });
+    }
+    return true;
+});
+
+// Listen for batch progress updates from MAIN world and forward to background
+document.addEventListener('batchProgress', (event) => {
+    const { detail } = event;
+    chrome.runtime.sendMessage({
+        type: "BATCH_PROGRESS",
+        processed: detail.processed,
+        total: detail.total,
+        status: detail.status,
+        currentVideo: detail.currentVideo
+    });
+});
