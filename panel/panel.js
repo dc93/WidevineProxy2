@@ -165,16 +165,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ================ Keys ================
 const clear = document.getElementById('clear');
 clear.addEventListener('click', async function() {
-    chrome.runtime.sendMessage({ type: "CLEAR" });
+    // Clear UI immediately for better UX
     key_container.innerHTML = "";
+
+    // Wait for storage to actually be cleared
+    chrome.runtime.sendMessage({ type: "CLEAR" }, async (response) => {
+        if (response && response.success) {
+            console.log('[WidevineProxy2] Storage cleared successfully');
+            // Double-check by clearing local storage directly as well
+            await AsyncLocalStorage.clearStorage();
+        }
+    });
 });
 
 const copy_all_commands = document.getElementById('copy-all-commands');
 copy_all_commands.addEventListener('click', async function() {
     const logs = await AsyncLocalStorage.getStorage(null);
+    console.log('[WidevineProxy2] Storage contents:', logs);
+    console.log('[WidevineProxy2] Number of entries in storage:', Object.keys(logs).length);
+
     const commands = [];
 
     for (const [key, result] of Object.entries(logs)) {
+        // Skip non-log entries (they won't have keys/manifests structure)
+        if (!result || typeof result !== 'object' || !result.keys) {
+            console.log('[WidevineProxy2] Skipping non-log entry:', key);
+            continue;
+        }
+
         if (result.keys && result.manifests && result.manifests.length > 0) {
             const key_string = result.keys.map(key => `--key ${key.kid}:${key.k}`).join(' ');
             const videoName = result.videoName || 'Unknown Video';

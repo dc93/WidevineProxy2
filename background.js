@@ -334,13 +334,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 });
                 break;
             case "CLEAR":
-                logs = [];
-                manifests.clear();
-                videoNames.clear();
-                // Clear persistent storage
-                await AsyncLocalStorage.clearStorage();
-                console.log("[WidevineProxy2] All data cleared");
-                sendResponse({ success: true });
+                try {
+                    // Clear in-memory data
+                    logs = [];
+                    manifests.clear();
+                    videoNames.clear();
+
+                    // Clear persistent storage completely
+                    await AsyncLocalStorage.clearStorage();
+
+                    console.log("[WidevineProxy2] All data cleared - logs, manifests, videoNames, and storage");
+                    sendResponse({ success: true });
+                } catch (error) {
+                    console.error("[WidevineProxy2] Error clearing data:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
                 break;
             case "MANIFEST":
                 const parsed = JSON.parse(message.body);
