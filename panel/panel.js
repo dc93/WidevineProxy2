@@ -207,7 +207,7 @@ async function createCommand(json, key_string, videoName) {
         ? videoName.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_')
         : 'output';
 
-    return `${await SettingsManager.getExecutableName()} "${metadata.url}" ${header_string} ${key_string} ${await SettingsManager.getUseShakaPackager() ? "--use-shaka-packager " : ""}-M format=mkv -M name="${safeVideoName}"`;
+    return `${await SettingsManager.getExecutableName()} "${metadata.url}" ${header_string} ${key_string} ${await SettingsManager.getUseShakaPackager() ? "--use-shaka-packager " : ""}--save-name "${safeVideoName}" -M format=mkv`;
 }
 
 async function appendLog(result) {
