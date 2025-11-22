@@ -118,6 +118,47 @@ downloader_name.addEventListener('input', async function (event){
 });
 // =================================================
 
+// ================ Batch Processing ================
+const start_batch = document.getElementById('start-batch');
+const stop_batch = document.getElementById('stop-batch');
+const batch_status = document.querySelector('#batch-status span');
+const batch_progress = document.getElementById('batch-progress');
+
+start_batch.addEventListener('click', async function() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+        chrome.tabs.sendMessage(tab.id, { type: "START_BATCH_PROCESSING" });
+        start_batch.disabled = true;
+        stop_batch.disabled = false;
+        batch_status.textContent = "Status: Running";
+    }
+});
+
+stop_batch.addEventListener('click', async function() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+        chrome.tabs.sendMessage(tab.id, { type: "STOP_BATCH_PROCESSING" });
+        start_batch.disabled = false;
+        stop_batch.disabled = true;
+        batch_status.textContent = "Status: Stopped";
+    }
+});
+
+// Listen for batch processing updates
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "BATCH_PROGRESS") {
+        batch_progress.textContent = `Videos processed: ${message.processed} / ${message.total}`;
+        if (message.status === "completed") {
+            batch_status.textContent = "Status: Completed";
+            start_batch.disabled = false;
+            stop_batch.disabled = true;
+        } else if (message.status === "processing") {
+            batch_status.textContent = `Status: Processing "${message.currentVideo}"`;
+        }
+    }
+});
+// =================================================
+
 // ================ Keys ================
 const clear = document.getElementById('clear');
 clear.addEventListener('click', async function() {
@@ -135,6 +176,7 @@ async function appendLog(result) {
     const key_string = result.keys.map(key => `--key ${key.kid}:${key.k}`).join(' ');
     const date = new Date(result.timestamp * 1000);
     const date_string = date.toLocaleString();
+    const videoName = result.videoName || 'Unknown Video';
 
     const logContainer = document.createElement('div');
     logContainer.classList.add('log-container');
@@ -142,9 +184,11 @@ async function appendLog(result) {
         <button class="toggleButton">+</button>
         <div class="expandableDiv collapsed">
             <label class="always-visible right-bound">
-                URL:<input type="text" class="text-box" value="${result.url}">
+                Video Name:<input type="text" class="text-box" value="${videoName}">
             </label>
             <label class="expanded-only right-bound">
+                URL:<input type="text" class="text-box" value="${result.url}">
+            </label>
             <label class="expanded-only right-bound">
                 PSSH:<input type="text" class="text-box" value="${result.pssh_data}">
             </label>

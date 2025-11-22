@@ -16,7 +16,7 @@ function compareUint8Arrays(arr1, arr2) {
     return Array.from(arr1).every((value, index) => value === arr2[index]);
 }
 
-function emitAndWaitForResponse(type, data) {
+function emitAndWaitForResponse(type, data, videoName = null) {
     return new Promise((resolve) => {
         const requestId = Math.random().toString(16).substring(2, 9);
         const responseHandler = (event) => {
@@ -32,6 +32,7 @@ function emitAndWaitForResponse(type, data) {
                 type: type,
                 body: data,
                 requestId: requestId,
+                videoName: videoName,
             }
         });
         document.dispatchEvent(requestEvent);
@@ -83,6 +84,86 @@ class Evaluator {
     }
 }
 
+class VideoNameExtractor {
+    static extractVideoName() {
+        // Try multiple methods to extract video name, ordered by reliability
+
+        // 1. Try JSON-LD structured data
+        const jsonLdScript = document.querySelector('script[type="application/ld+json"]');
+        if (jsonLdScript) {
+            try {
+                const data = JSON.parse(jsonLdScript.textContent);
+                if (data.name) return this.sanitizeName(data.name);
+                if (data.headline) return this.sanitizeName(data.headline);
+                if (data['@type'] === 'VideoObject' && data.name) return this.sanitizeName(data.name);
+            } catch (e) {}
+        }
+
+        // 2. Try Open Graph meta tags
+        const ogTitle = document.querySelector('meta[property="og:title"]');
+        if (ogTitle && ogTitle.content) {
+            return this.sanitizeName(ogTitle.content);
+        }
+
+        // 3. Try Twitter meta tags
+        const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+        if (twitterTitle && twitterTitle.content) {
+            return this.sanitizeName(twitterTitle.content);
+        }
+
+        // 4. Try common video player attributes
+        const videoElement = document.querySelector('video[title], video[data-title], video[aria-label]');
+        if (videoElement) {
+            const title = videoElement.getAttribute('title') ||
+                         videoElement.getAttribute('data-title') ||
+                         videoElement.getAttribute('aria-label');
+            if (title) return this.sanitizeName(title);
+        }
+
+        // 5. Try common video title selectors
+        const titleSelectors = [
+            'h1.video-title',
+            '.video-title',
+            '[data-video-title]',
+            'h1[class*="title"]',
+            '.player-title',
+            '[class*="video-name"]',
+            'h1',
+        ];
+
+        for (const selector of titleSelectors) {
+            const element = document.querySelector(selector);
+            if (element && element.textContent.trim()) {
+                return this.sanitizeName(element.textContent.trim());
+            }
+        }
+
+        // 6. Fallback to page title
+        if (document.title) {
+            return this.sanitizeName(document.title);
+        }
+
+        // 7. Last resort - use hostname and timestamp
+        return `Video_${window.location.hostname}_${Date.now()}`;
+    }
+
+    static sanitizeName(name) {
+        // Remove common site suffixes and clean up the name
+        let cleaned = name
+            .replace(/\s*[-|–—]\s*.+$/, '') // Remove everything after - | – —
+            .replace(/\s*\(.+?\)\s*/g, '') // Remove parentheses content
+            .replace(/[<>:"/\\|?*]/g, '') // Remove invalid filename characters
+            .trim();
+
+        // Limit length
+        if (cleaned.length > 100) {
+            cleaned = cleaned.substring(0, 100);
+        }
+
+        return cleaned || 'Untitled_Video';
+    }
+}
+
 (async () => {
     if (typeof EventTarget !== 'undefined') {
         proxy(EventTarget.prototype, 'addEventListener', async (_target, _this, _args) => {
@@ -114,7 +195,8 @@ class Evaluator {
                                 console.log("[WidevineProxy2]", "WIDEVINE_PROXY", "MESSAGE", listener);
                                 if (listener.name !== "messageHandler") {
                                     const oldChallenge = uint8ArrayToBase64(new Uint8Array(event.message));
-                                    const newChallenge = await emitAndWaitForResponse("REQUEST", oldChallenge);
+                                    const videoName = VideoNameExtractor.extractVideoName();
+                                    const newChallenge = await emitAndWaitForResponse("REQUEST", oldChallenge, videoName);
                                     if (oldChallenge !== newChallenge) {
                                         // Playback will fail if the challenges are the same (aka. the background script
                                         // returned the same challenge because the addon is disabled), but I still
@@ -178,7 +260,8 @@ class Evaluator {
         proxy(MediaKeySession.prototype, 'update', async (_target, _this, _args) => {
             const [response] = _args;
             console.log("[WidevineProxy2]", "WIDEVINE_PROXY", "UPDATE");
-            await emitAndWaitForResponse("RESPONSE", uint8ArrayToBase64(new Uint8Array(response)))
+            const videoName = VideoNameExtractor.extractVideoName();
+            await emitAndWaitForResponse("RESPONSE", uint8ArrayToBase64(new Uint8Array(response)), videoName)
             return await _target.apply(_this, _args);
         });
     }
@@ -264,3 +347,137 @@ XMLHttpRequest.prototype.send = function(postData) {
     });
     return send.apply(this, arguments);
 };
+
+// ================ Batch Video Processing ================
+class BatchVideoProcessor {
+    constructor() {
+        this.isProcessing = false;
+        this.currentIndex = 0;
+        this.videoQueue = [];
+        this.processedVideos = new Set();
+    }
+
+    findAllVideos() {
+        // Find all video elements on the page
+        const videos = Array.from(document.querySelectorAll('video'));
+
+        // Also look for video containers that might load videos dynamically
+        const videoContainers = Array.from(document.querySelectorAll(
+            '[class*="video"], [class*="player"], [id*="video"], [id*="player"]'
+        ));
+
+        // Find videos in iframes (if accessible)
+        try {
+            const iframes = Array.from(document.querySelectorAll('iframe'));
+            for (const iframe of iframes) {
+                try {
+                    const iframeVideos = Array.from(iframe.contentDocument.querySelectorAll('video'));
+                    videos.push(...iframeVideos);
+                } catch (e) {
+                    // Can't access cross-origin iframe
+                }
+            }
+        } catch (e) {}
+
+        return videos.filter(v => v.src || v.querySelector('source'));
+    }
+
+    async start() {
+        if (this.isProcessing) {
+            console.log("[BatchProcessor] Already processing");
+            return;
+        }
+
+        this.videoQueue = this.findAllVideos();
+        if (this.videoQueue.length === 0) {
+            console.log("[BatchProcessor] No videos found on page");
+            this.sendProgress(0, 0, "completed", null);
+            return;
+        }
+
+        console.log("[BatchProcessor] Found", this.videoQueue.length, "videos");
+        this.isProcessing = true;
+        this.currentIndex = 0;
+        this.processedVideos.clear();
+
+        await this.processNextVideo();
+    }
+
+    stop() {
+        this.isProcessing = false;
+        console.log("[BatchProcessor] Stopped");
+    }
+
+    async processNextVideo() {
+        if (!this.isProcessing || this.currentIndex >= this.videoQueue.length) {
+            this.isProcessing = false;
+            this.sendProgress(this.currentIndex, this.videoQueue.length, "completed", null);
+            console.log("[BatchProcessor] Completed all videos");
+            return;
+        }
+
+        const video = this.videoQueue[this.currentIndex];
+        const videoName = VideoNameExtractor.extractVideoName();
+
+        console.log("[BatchProcessor] Processing video", this.currentIndex + 1, "of", this.videoQueue.length, ":", videoName);
+        this.sendProgress(this.currentIndex, this.videoQueue.length, "processing", videoName);
+
+        try {
+            // Scroll video into view
+            video.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await this.sleep(500);
+
+            // Play the video to trigger DRM
+            if (video.paused) {
+                await video.play().catch(e => console.log("[BatchProcessor] Play error:", e));
+            }
+
+            // Wait for video to load and potentially trigger DRM
+            await this.sleep(3000);
+
+            // Mark as processed
+            this.processedVideos.add(video);
+            this.currentIndex++;
+
+            // Move to next video
+            if (this.isProcessing) {
+                setTimeout(() => this.processNextVideo(), 1000);
+            }
+        } catch (error) {
+            console.error("[BatchProcessor] Error processing video:", error);
+            this.currentIndex++;
+            if (this.isProcessing) {
+                setTimeout(() => this.processNextVideo(), 1000);
+            }
+        }
+    }
+
+    sendProgress(processed, total, status, currentVideo) {
+        chrome.runtime.sendMessage({
+            type: "BATCH_PROGRESS",
+            processed: processed,
+            total: total,
+            status: status,
+            currentVideo: currentVideo
+        });
+    }
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+}
+
+const batchProcessor = new BatchVideoProcessor();
+
+// Listen for batch processing commands
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "START_BATCH_PROCESSING") {
+        batchProcessor.start();
+        sendResponse({ success: true });
+    } else if (message.type === "STOP_BATCH_PROCESSING") {
+        batchProcessor.stop();
+        sendResponse({ success: true });
+    }
+    return true;
+});
+// =======================================================

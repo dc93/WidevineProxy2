@@ -62,6 +62,17 @@
         </fieldset>
         <button type="button" id="export">Export Logs</button>
     </fieldset>
+    <fieldset id="batch-processing">
+        <legend>Batch Processing</legend>
+        <div>
+            <button type="button" id="start-batch">Start Batch Processing</button>
+            <button type="button" id="stop-batch" disabled>Stop</button>
+        </div>
+        <div id="batch-status" style="margin-top: 10px; font-size: 12px;">
+            <span>Status: Idle</span><br>
+            <span id="batch-progress">Videos processed: 0 / 0</span>
+        </div>
+    </fieldset>
     <fieldset>
         <legend>Keys</legend>
         <button type="button" id="clear">Clear</button>

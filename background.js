@@ -20,6 +20,7 @@ let manifests = new Map();
 let requests = new Map();
 let sessions = new Map();
 let logs = [];
+let videoNames = new Map(); // Store video names by tab URL
 
 chrome.webRequest.onBeforeSendHeaders.addListener(
     function(details) {
@@ -67,6 +68,7 @@ async function parseClearKey(body, sendResponse, tab_url) {
         pssh_data: pssh_data,
         keys: formatted_keys,
         url: tab_url,
+        videoName: videoNames.get(tab_url) || null,
         timestamp: Math.floor(Date.now() / 1000),
         manifests: manifests.has(tab_url) ? manifests.get(tab_url) : []
     }
@@ -145,6 +147,7 @@ async function parseLicense(body, sendResponse, tab_url) {
         pssh_data: pssh,
         keys: keys,
         url: tab_url,
+        videoName: videoNames.get(tab_url) || null,
         timestamp: Math.floor(Date.now() / 1000),
         manifests: manifests.has(tab_url) ? manifests.get(tab_url) : []
     }
@@ -242,6 +245,7 @@ async function parseLicenseRemote(body, sendResponse, tab_url) {
         pssh_data: session_id.pssh,
         keys: keys,
         url: tab_url,
+        videoName: videoNames.get(tab_url) || null,
         timestamp: Math.floor(Date.now() / 1000),
         manifests: manifests.has(tab_url) ? manifests.get(tab_url) : []
     }
@@ -255,6 +259,11 @@ async function parseLicenseRemote(body, sendResponse, tab_url) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
         const tab_url = sender.tab ? sender.tab.url : null;
+
+        // Store video name if provided
+        if (message.videoName && tab_url) {
+            videoNames.set(tab_url, message.videoName);
+        }
 
         switch (message.type) {
             case "REQUEST":
@@ -326,7 +335,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 break;
             case "CLEAR":
                 logs = [];
-                manifests.clear()
+                manifests.clear();
+                videoNames.clear();
                 break;
             case "MANIFEST":
                 const parsed = JSON.parse(message.body);
@@ -346,6 +356,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     }
                 }
                 sendResponse();
+                break;
+            case "BATCH_PROGRESS":
+                // Forward batch progress to any open panels
+                chrome.runtime.sendMessage(message);
+                break;
         }
     })();
     return true;
