@@ -225,13 +225,15 @@ input:checked + .slider:before {
     margin-bottom: 12px;
 }
 
-#type-select {
-    margin-left: auto;
+#settings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
 }
 
-#settings {
-    display: flex;
-    gap: 12px;
+#type-select {
+    grid-column: 1 / -1;
 }
 
 .header {
@@ -247,13 +249,24 @@ input:checked + .slider:before {
     margin: 5px;
 }
 
-#wvd > *, #remote > * {
-    margin: 5px 5px 5px 0;
+/* WVD and Remote sections */
+#wvd, #remote {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-/* Button groups */
+#wvd > div, #remote > div {
+    display: flex;
+    gap: 8px;
+}
+
 #wvd button, #remote button {
-    margin-right: 5px;
+    flex: 1;
+}
+
+#wvd select, #remote select {
+    width: 100%;
 }
 
 .log-container {

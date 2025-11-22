@@ -149,14 +149,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "BATCH_PROGRESS") {
         batch_progress.textContent = `Videos: ${message.processed} / ${message.total}`;
         if (message.status === "completed") {
-            batch_status_text.textContent = "✅ Status: Completed";
+            batch_status_text.textContent = "Status: Completed";
             start_batch.disabled = false;
             stop_batch.disabled = true;
         } else if (message.status === "processing") {
             const shortName = message.currentVideo.length > 35
                 ? message.currentVideo.substring(0, 35) + '...'
                 : message.currentVideo;
-            batch_status_text.textContent = `⏳ Processing: ${shortName}`;
+            batch_status_text.textContent = `Processing: ${shortName}`;
         }
     }
 });

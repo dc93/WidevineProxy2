@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title></title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WidevineProxy2</title>
     <script type="module" src="panel.js" defer></script>
     <link rel="stylesheet" href="panel.css">
 </head>
@@ -11,12 +13,12 @@
         <img id="textImage" src="../images/proxy_text.png" alt="ProxyText" width="200"/>
     </div>
     <fieldset>
-        <legend>⚙️ Settings</legend>
+        <legend>Settings</legend>
         <div id="settings">
             <!-- Enabled -->
             <div>
                 <input type="checkbox" id="enabled">
-                <label for="enabled"> ✓ Enabled</label>
+                <label for="enabled">Enabled</label>
             </div>
             <!-- Dark mode -->
             <div>
@@ -24,34 +26,34 @@
                     <input type="checkbox" id="darkModeToggle">
                     <span class="slider"></span>
                 </label>
-                <label for="enabled"> 🌙 Dark mode</label>
+                <label for="darkModeToggle">Dark mode</label>
             </div>
             <!-- Type select -->
             <div id="type-select">
-                <a><strong>Device Type:</strong></a><br>
+                <strong>Device Type:</strong><br>
                 <input type="radio" id="wvd_select" name="cdm_type" value="wvd">
-                <label for="wvd_select">📱 Widevine Device</label><br>
+                <label for="wvd_select">Widevine Device</label><br>
                 <input type="radio" id="remote_select" name="cdm_type" value="remote">
-                <label for="remote_select">☁️ Remote CDM</label><br>
+                <label for="remote_select">Remote CDM</label><br>
             </div>
         </div>
         <fieldset id="wvd">
             <legend>Widevine Device</legend>
-            <button type="button" id="fileInput">Choose File</button>
-            <button type="button" id="remove">Remove</button>
-            <button type="button" id="download">Download</button><br>
-            <label>
-                <select id="wvd-combobox"></select>
-            </label>
+            <div>
+                <button type="button" id="fileInput">Choose File</button>
+                <button type="button" id="remove">Remove</button>
+                <button type="button" id="download">Download</button>
+            </div>
+            <select id="wvd-combobox"></select>
         </fieldset>
         <fieldset id="remote">
             <legend>Remote CDM</legend>
-            <button type="button" id="remoteInput">Choose remote.json</button>
-            <button type="button" id="remoteRemove">Remove</button>
-            <button type="button" id="remoteDownload">Download</button><br>
-            <label>
-                <select id="remote-combobox"></select>
-            </label>
+            <div>
+                <button type="button" id="remoteInput">Choose remote.json</button>
+                <button type="button" id="remoteRemove">Remove</button>
+                <button type="button" id="remoteDownload">Download</button>
+            </div>
+            <select id="remote-combobox"></select>
         </fieldset>
         <fieldset id="command-options">
             <legend>Command options</legend>
@@ -63,10 +65,10 @@
         <button type="button" id="export">Export Logs</button>
     </fieldset>
     <fieldset id="batch-processing">
-        <legend>⚡ Batch Processing</legend>
+        <legend>Batch Processing</legend>
         <div class="batch-controls">
-            <button type="button" id="start-batch">▶ Start</button>
-            <button type="button" id="stop-batch" disabled>⏹ Stop</button>
+            <button type="button" id="start-batch">Start</button>
+            <button type="button" id="stop-batch" disabled>Stop</button>
         </div>
         <div id="batch-status">
             <span id="batch-status-text">Status: Idle</span>
@@ -74,9 +76,9 @@
         </div>
     </fieldset>
     <fieldset>
-        <legend>🔑 Keys</legend>
-        <button type="button" id="copy-all-commands">📋 Copy All Commands</button>
-        <button type="button" id="clear">🗑️ Clear All</button>
+        <legend>Keys</legend>
+        <button type="button" id="copy-all-commands">Copy All Commands</button>
+        <button type="button" id="clear">Clear All</button>
         <div id="key-container"></div>
     </fieldset>
 </body>
