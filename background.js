@@ -337,6 +337,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 logs = [];
                 manifests.clear();
                 videoNames.clear();
+                // Clear persistent storage
+                await AsyncLocalStorage.clearStorage();
+                console.log("[WidevineProxy2] All data cleared");
+                sendResponse({ success: true });
                 break;
             case "MANIFEST":
                 const parsed = JSON.parse(message.body);

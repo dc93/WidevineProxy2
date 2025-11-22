@@ -75,6 +75,18 @@ export class AsyncLocalStorage {
             });
         });
     }
+
+    static async clearStorage() {
+        return new Promise((resolve, reject) => {
+            chrome.storage.local.clear(() => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError));
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
 }
 
 export class DeviceManager {
