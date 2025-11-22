@@ -121,7 +121,7 @@ downloader_name.addEventListener('input', async function (event){
 // ================ Batch Processing ================
 const start_batch = document.getElementById('start-batch');
 const stop_batch = document.getElementById('stop-batch');
-const batch_status = document.querySelector('#batch-status span');
+const batch_status_text = document.getElementById('batch-status-text');
 const batch_progress = document.getElementById('batch-progress');
 
 start_batch.addEventListener('click', async function() {
@@ -130,7 +130,7 @@ start_batch.addEventListener('click', async function() {
         chrome.tabs.sendMessage(tab.id, { type: "START_BATCH_PROCESSING" });
         start_batch.disabled = true;
         stop_batch.disabled = false;
-        batch_status.textContent = "Status: Running";
+        batch_status_text.textContent = "Status: Running...";
     }
 });
 
@@ -140,20 +140,23 @@ stop_batch.addEventListener('click', async function() {
         chrome.tabs.sendMessage(tab.id, { type: "STOP_BATCH_PROCESSING" });
         start_batch.disabled = false;
         stop_batch.disabled = true;
-        batch_status.textContent = "Status: Stopped";
+        batch_status_text.textContent = "Status: Stopped";
     }
 });
 
 // Listen for batch processing updates
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "BATCH_PROGRESS") {
-        batch_progress.textContent = `Videos processed: ${message.processed} / ${message.total}`;
+        batch_progress.textContent = `Videos: ${message.processed} / ${message.total}`;
         if (message.status === "completed") {
-            batch_status.textContent = "Status: Completed";
+            batch_status_text.textContent = "✅ Status: Completed";
             start_batch.disabled = false;
             stop_batch.disabled = true;
         } else if (message.status === "processing") {
-            batch_status.textContent = `Status: Processing "${message.currentVideo}"`;
+            const shortName = message.currentVideo.length > 35
+                ? message.currentVideo.substring(0, 35) + '...'
+                : message.currentVideo;
+            batch_status_text.textContent = `⏳ Processing: ${shortName}`;
         }
     }
 });
